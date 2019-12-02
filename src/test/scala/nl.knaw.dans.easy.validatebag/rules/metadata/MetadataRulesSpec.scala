@@ -162,6 +162,42 @@ class MetadataRulesSpec extends TestSupportFixture with CanConnectFixture {
       includedInErrorMsg = "Invalid DOIs: 11.1234/fantasy-doi-id, 10/1234/fantasy-doi-id, 10.1234.fantasy-doi-id, http://doi.org/10.1234.567/issn-987-654, https://doi.org/10.1234.567/issn-987-654")
   }
 
+  private val ddmProfile =
+    <ddm:profile>
+        <dc:title xml:lang="en">Title of the dataset</dc:title>
+        <dc:description xml:lang="la">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</dc:description>
+        <dcx-dai:creatorDetails>
+            <dcx-dai:author>
+                <dcx-dai:organization>
+                    <dcx-dai:name xml:lang="en">Utrecht University</dcx-dai:name>
+                </dcx-dai:organization>
+            </dcx-dai:author>
+        </dcx-dai:creatorDetails>
+        <ddm:created>2012-12</ddm:created>
+        <ddm:available>2013-05</ddm:available>
+        <ddm:audience>D24000</ddm:audience>
+        <ddm:accessRights>OPEN_ACCESS_FOR_REGISTERED_USERS</ddm:accessRights>
+    </ddm:profile>
+
+  it should "report invalid subject links" in {
+    testDdmRuleViolation(
+      rule = ddmSubjectLinksHaveValidProtocol,
+      ddm = <ddm:DDM xmlns:ddm="http://easy.dans.knaw.nl/schemas/md/ddm/"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns:dc="http://purl.org/dc/elements/1.1/"
+                   xmlns:dct="http://purl.org/dc/terms/"
+                   xmlns:dcx-dai="http://easy.dans.knaw.nl/schemas/dcx/dai/"
+                   xsi:schemaLocation="http://easy.dans.knaw.nl/schemas/md/ddm/ http://easy.dans.knaw.nl/schemas/md/2017/09/ddm.xsd">
+              { ddmProfile }
+              <ddm:dcmiMetadata>
+                  <dct:license xsi:type="dct:URI">http://creativecommons.org/licenses/by-sa/4.0</dct:license>
+                  <dct:rightsHolder>Mr. Rights</dct:rightsHolder>
+              </ddm:dcmiMetadata>
+          </ddm:DDM>
+      ,
+      includedInErrorMsg = "blablabla")
+  }
+
   "ddmGmlPolygonPosListIsWellFormed" should "report error if odd number of values in posList" in {
     testRuleViolation(
       rule = ddmGmlPolygonPosListIsWellFormed,

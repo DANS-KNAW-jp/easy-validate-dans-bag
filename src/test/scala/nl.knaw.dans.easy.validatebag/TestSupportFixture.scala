@@ -24,7 +24,8 @@ import nl.knaw.dans.lib.logging.DebugEnhancedLogging
 import org.scalatest._
 
 import scala.util.matching.Regex
-import scala.util.{ Failure, Success }
+import scala.util.{ Failure, Success, Try }
+import scala.xml.Node
 
 trait TestSupportFixture extends FlatSpec with Matchers with Inside with BeforeAndAfterEach with DebugEnhancedLogging {
   lazy val testDir: File = File(s"target/test/${ getClass.getSimpleName }")
@@ -53,6 +54,20 @@ trait TestSupportFixture extends FlatSpec with Matchers with Inside with BeforeA
   protected def testRuleViolation(rule: Rule, inputBag: String, includedInErrorMsg: String, profileVersion: ProfileVersion = 0, doubleCheckBagItValidity: Boolean = true): Unit = {
     val result = rule(new TargetBag(bagsDir / inputBag, profileVersion))
     if (doubleCheckBagItValidity) shouldBeValidAccordingToBagIt(inputBag)
+    result shouldBe a[Failure[_]]
+    inside(result) {
+      case Failure(e: RuleViolationDetailsException) =>
+        e.getMessage should include(includedInErrorMsg)
+      case Failure(e) => fail(s"Not the expected type of exception: $e")
+    }
+  }
+
+
+  protected def testDdmRuleViolation(rule: Rule, ddm: Node, includedInErrorMsg: String): Unit = {
+    val bag = new TargetBag(bagsDir / "metadata-correct", 0) {
+      override lazy val tryDdm: Try[Node] = Success(ddm)
+    }
+    val result = rule(bag)
     result shouldBe a[Failure[_]]
     inside(result) {
       case Failure(e: RuleViolationDetailsException) =>

@@ -15,12 +15,12 @@
  */
 package nl.knaw.dans.easy.validatebag.rules
 
-import java.net.{ URI, URISyntaxException }
+import java.net.{ MalformedURLException, URI, URISyntaxException, URL }
 import java.nio.ByteBuffer
 import java.nio.charset.{ CharacterCodingException, Charset }
 import java.nio.file.{ Path, Paths }
 
-import nl.knaw.dans.easy.validatebag.validation._ 
+import nl.knaw.dans.easy.validatebag.validation._
 import nl.knaw.dans.easy.validatebag.{ TargetBag, XmlValidator }
 import nl.knaw.dans.lib.error._
 import nl.knaw.dans.lib.logging.DebugEnhancedLogging
@@ -128,6 +128,19 @@ package object metadata extends DebugEnhancedLogging {
 
   private def syntacticallyValidDoi(doi: String): Boolean = {
     doiPattern.findFirstIn(doi).nonEmpty
+  }
+
+  def ddmSubjectLinksHaveValidProtocol(t: TargetBag): Try[Unit] = {
+    for {
+      ddm <- t.tryDdm
+      invalidLinks <- Try((ddm \\ "subject-link").filterNot(validLinkProtocol)) // TODO collect all invalid URLs
+      _ = if (invalidLinks.nonEmpty) fail(s"Invalid link protocols: ${ invalidLinks.mkString(", ") }")
+    } yield ()
+  }
+
+  @throws[MalformedURLException]("When URL is invalid")
+  private def validLinkProtocol(node: Node) = {
+    new URL(node.text).getProtocol.toLowerCase.startsWith("http")
   }
 
   /**
@@ -245,9 +258,7 @@ package object metadata extends DebugEnhancedLogging {
       _ <- multiSurfaces.map(validateMultiSurface).collectResults
     } yield ()
 
-    result.recoverWith {
-      case ce: CompositeException => Try(fail(ce.getMessage))
-    }
+    recoverFromCollected(result)
   }
 
   private def getMultiSurfaces(ddm: Node): Try[NodeSeq] = Try {
@@ -268,6 +279,10 @@ package object metadata extends DebugEnhancedLogging {
       _ <- points.map(validatePoint).collectResults
     } yield ()
 
+    recoverFromCollected(result)
+  }
+
+  private def recoverFromCollected(result: Try[Unit]) = {
     result.recoverWith {
       case ce: CompositeException => Try(fail(ce.getMessage))
     }
